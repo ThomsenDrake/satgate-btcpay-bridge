@@ -10,8 +10,8 @@
 │ (MCP client)│                       │ (L402 validator) │              │ Server      │
 └─────────────┘                       └────────▲─────────┘              └─────────────┘
                                                  │
-                                    Budget check │ SEP-1686
-                                                 ▼
+                                    Budget check via macaroon caveat
+                                                 │
                                        ┌──────────────────┐
                                        │ SatGate          │
                                        │ (authorization)  │
@@ -22,27 +22,53 @@
 
 **Objective:** Issue a SatGate budget-check macaroon + validate it on BTCPay for a single MCP tool call.
 
-### Integration Points
+### SatGate API (from source — v0.5.2)
 
-1. **SatGate side** — Issue macaroon on budget check:
-   - Endpoint: `POST /api/v1/authorize`
-   - Request: `{ "task_id": "...", "budget": "...", "client": "btcpay-mcp" }`
-   - Response: macaroon + L402 payment request
+SatGate exposes two API groups on port **8080**:
 
-2. **BTCPay side** — Validate L402 payment:
-   - `L402-Token` header with SatGate macaroon
-   - BTCPay `ValidateMacaroon()` middleware
-   - If valid → serve MCP tool, create invoice for settlement
+#### Capability APIs
 
-3. **Settlement** — Invoice lifecycle:
-   - BTCPay creates invoice on tool call
-   - SatGate pays via pre-funded Lightning channel
-   - Completion webhook fires → release MCP tool response
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/capability/mint` | Mint a new capability token (admin only) |
+| `POST` | `/api/capability/validate` | Validate a capability token |
+| `POST` | `/api/capability/delegate` | Delegate a token with caveats |
+| `GET` | `/api/capability/ping` | Health check with auth |
 
-### Unknowns (need SatGate input)
-- [ ] SEP-1686 task creation endpoint (POST format, required fields)
-- [ ] Budget enforcement webhook URL or GET endpoint
-- [ ] Test credentials / sandbox environment
+#### Governance APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/governance/ban` | Ban/revoke a token |
+| `GET` | `/api/governance/graph` | Token lineage graph |
+| `POST` | `/api/governance/reset` | Reset governance data |
+
+### Flow
+
+1. **Mint** — SatGate admin mint a capability macaroon:
+   ```bash
+   curl -X POST http://localhost:8080/api/capability/mint \
+     -H "Authorization: Bearer <ADMIN_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{"scope": "btcpay-mcp", "budget": 1000}'
+   ```
+   Response: macaroon containing budget caveat in the mint response
+
+2. **Validate** — btcpay-mcp validates before serving tools:
+   ```bash
+   curl -X POST http://localhost:8080/api/capability/validate \
+     -H "Authorization: Bearer <MACAROON>"
+   ```
+
+3. **Settlement** — SatGate proxies the MCP request; BTCPay creates invoice for Lightning settlement
+
+### Implementation Status
+
+- [x] Architecture documented
+- [x] API endpoints identified (from SatGate source)
+- [ ] Test admin credentials (awaiting Matt)
+- [ ] btcpay-mcp L402 middleware implementation
+- [ ] End-to-end test
 
 ## Phase 2: Recurring Budget Monitoring
 
@@ -50,7 +76,7 @@
 
 ## References
 
-- [SatGate](https://satgate.io)
-- [btcpay-mcp](https://github.com/ThomsenDrake/btcpay-mcp)
-- [x402 protocol](https://github.com/lightninglabs/x402)
-- [SEP-1686](https://github.com/stacker-news/SEP-1686)
+- [SatGate](https://satgate.io) — The Economic Firewall for AI Agents
+- [btcpay-mcp](https://github.com/ThomsenDrake/btcpay-mcp) — BTCPay MCP server
+- [x402 protocol](https://github.com/lightninglabs/x402) — L402 payment standard
+- [SEP-1686](https://github.com/stacker-news/SEP-1686) — MCP Tasks standard
