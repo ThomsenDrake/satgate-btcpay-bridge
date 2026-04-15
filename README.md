@@ -48,7 +48,7 @@ SatGate exposes two API groups on port **8080**:
 1. **Mint** — SatGate admin mint a capability macaroon:
    ```bash
    curl -X POST http://localhost:8080/api/capability/mint \
-     -H "Authorization: Bearer <ADMIN_TOKEN>" \
+     -H "Authorization: Bearer <admin_token>" \
      -H "Content-Type: application/json" \
      -d '{"scope": "btcpay-mcp", "budget": 1000}'
    ```
@@ -57,7 +57,7 @@ SatGate exposes two API groups on port **8080**:
 2. **Validate** — btcpay-mcp validates before serving tools:
    ```bash
    curl -X POST http://localhost:8080/api/capability/validate \
-     -H "Authorization: Bearer <MACAROON>"
+     -H "Authorization: Bearer <macaroon>"
    ```
 
 3. **Settlement** — SatGate proxies the MCP request; BTCPay creates invoice for Lightning settlement
@@ -66,9 +66,20 @@ SatGate exposes two API groups on port **8080**:
 
 - [x] Architecture documented
 - [x] API endpoints identified (from SatGate source)
-- [ ] Test admin credentials (awaiting Matt)
+- [x] GitHub repo initialized
+- [ ] SEP-1686 task POST format from Matt (SatGate)
 - [ ] btcpay-mcp L402 middleware implementation
 - [ ] End-to-end test
+
+## Integration: tollbooth-dpyc (L402 + FastMCP)
+
+The [tollbooth-dpyc](https://github.com/lonniev/tollbooth-dpyc) project demonstrates L402 + FastMCP session binding — a complementary pattern:
+
+- **tollbooth-dpyc**: `session_id` bound to L402 macaroon via FastMCP
+- **satgate-btcpay-bridge**: SatGate budget enforcement + BTCPay settlement
+- **Combined**: SatGate authorizes → tollbooth-dpyc session-binds → BTCPay settles
+
+This creates a full stack: authorization (SatGate) + session binding (tollbooth-dpyc/FastMCP) + settlement (BTCPay).
 
 ## Phase 2: Recurring Budget Monitoring
 
@@ -78,5 +89,6 @@ SatGate exposes two API groups on port **8080**:
 
 - [SatGate](https://satgate.io) — The Economic Firewall for AI Agents
 - [btcpay-mcp](https://github.com/ThomsenDrake/btcpay-mcp) — BTCPay MCP server
+- [tollbooth-dpyc](https://github.com/lonniev/tollbooth-dpyc) — L402 + FastMCP for MCP servers
 - [x402 protocol](https://github.com/lightninglabs/x402) — L402 payment standard
 - [SEP-1686](https://github.com/stacker-news/SEP-1686) — MCP Tasks standard
